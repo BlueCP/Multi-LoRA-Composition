@@ -24,7 +24,8 @@ from transformers import CLIPImageProcessor, CLIPTextModel, CLIPTokenizer, CLIPV
 from diffusers.configuration_utils import FrozenDict
 from diffusers.image_processor import PipelineImageInput, VaeImageProcessor
 from diffusers.loaders import FromSingleFileMixin, IPAdapterMixin, LoraLoaderMixin, TextualInversionLoaderMixin
-from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionModel
+from diffusers.models import AutoencoderKL, ImageProjection
+from ..unet_2d_condition import UNet2DConditionModel
 from diffusers.models.attention_processor import FusedAttnProcessor2_0
 from diffusers.models.lora import adjust_lora_scale_text_encoder
 from diffusers.schedulers import KarrasDiffusionSchedulers
@@ -1024,6 +1025,8 @@ class StableDiffusionPipeline(
             adapters = self.get_active_adapters()
 
         self._num_timesteps = len(timesteps)
+        high_level_latents = []
+
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if self.interrupt:
@@ -1038,9 +1041,10 @@ class StableDiffusionPipeline(
                     noise_preds = []
                     # get noise_pred conditioned on each lora
                     self.enable_lora()
+                    temp_latents = None
                     for adapter in adapters:
                         self.set_adapters(adapter)
-                        noise_pred = self.unet(
+                        noise_pred, high_level_latent = self.unet(
                             latent_model_input,
                             t,
                             encoder_hidden_states=prompt_embeds,
@@ -1048,10 +1052,15 @@ class StableDiffusionPipeline(
                             cross_attention_kwargs=self.cross_attention_kwargs,
                             added_cond_kwargs=added_cond_kwargs,
                             return_dict=False,
-                        )[0]
+                        )
                         noise_preds.append(noise_pred)
+                        if temp_latents is None:
+                            temp_latents = high_level_latent[None, ...]
+                        else:
+                            temp_latents = torch.cat((temp_latents, high_level_latent[None, ...]), dim=0)
+                    high_level_latents.append(torch.mean(temp_latents, dim=0))
                 else:
-                    noise_pred = self.unet(
+                    noise_pred, high_level_latent = self.unet(
                         latent_model_input,
                         t,
                         encoder_hidden_states=prompt_embeds,
@@ -1059,7 +1068,8 @@ class StableDiffusionPipeline(
                         cross_attention_kwargs=self.cross_attention_kwargs,
                         added_cond_kwargs=added_cond_kwargs,
                         return_dict=False,
-                    )[0]
+                    )
+                    high_level_latents.append(high_level_latent)
 
                 # perform guidance
                 if self.do_classifier_free_guidance:
@@ -1115,6 +1125,24 @@ class StableDiffusionPipeline(
 
         # Offload all models
         self.maybe_free_model_hooks()
+
+        results = []
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        for i in range(len(high_level_latents) - 1):
+            latent1 = high_level_latents[i]
+            latent2 = high_level_latents[i + 1]
+
+            rmse = torch.sqrt(torch.mean((latent1 - latent2) ** 2, dim=(1, 2, 3)))
+            both_latents = torch.cat((latent1, latent2), dim=1)
+            # mean = torch.mean(both_latents, dim=(1, 2, 3))
+            # mean = (torch.mean(both_latents, dim=(1, 2, 3)) + torch.mean(latent2, dim=(1, 2, 3))) / 2
+            # iqr = torch.quantile(both_latents, 0.75, dim=(1, 2, 3)) - torch.quantile(both_latents, 0.25, dim=(1, 2, 3))
+            iqr = torch.tensor([torch.quantile(both_latents[j], 0.75) - torch.quantile(both_latents[j], 0.25) for j in range(both_latents.shape[0])]).to(device)
+
+            results.append(rmse / iqr)
+
+        return results
 
         if not return_dict:
             return (image, has_nsfw_concept)
