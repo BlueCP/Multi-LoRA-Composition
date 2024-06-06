@@ -40,7 +40,7 @@ from packaging import version
 from requests.exceptions import HTTPError
 from tqdm.auto import tqdm
 
-from .. import __version__
+from diffusers import __version__
 from diffusers.configuration_utils import ConfigMixin
 from diffusers.models.modeling_utils import _LOW_CPU_MEM_USAGE_DEFAULT
 from diffusers.schedulers.scheduling_utils import SCHEDULER_CONFIG_NAME

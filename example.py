@@ -1,6 +1,8 @@
 import torch
 import argparse
-from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL
+# from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL
+from SD.pipelines.stable_diffusion.pipeline import DiffusionPipeline
+from diffusers import AutoencoderKL
 from diffusers import DPMSolverMultistepScheduler
 from callbacks import make_callback
 
@@ -20,7 +22,7 @@ def main(args):
     # set base model
     pipeline = DiffusionPipeline.from_pretrained(
         model_name,
-        custom_pipeline="./pipelines/sd1.5_0.26.3",
+        # custom_pipeline="./pipelines/sd1.5_0.26.3",
         use_safetensors=True
     ).to("cuda")
 

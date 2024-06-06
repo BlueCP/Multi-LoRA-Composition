@@ -25,7 +25,7 @@ from diffusers.configuration_utils import FrozenDict
 from diffusers.image_processor import PipelineImageInput, VaeImageProcessor
 from diffusers.loaders import FromSingleFileMixin, IPAdapterMixin, LoraLoaderMixin, TextualInversionLoaderMixin
 from diffusers.models import AutoencoderKL, ImageProjection
-from .unet_2d_condition import UNet2DConditionModel
+from ...models.unets.unet_2d_condition import UNet2DConditionModel
 from diffusers.models.attention_processor import FusedAttnProcessor2_0
 from diffusers.models.lora import adjust_lora_scale_text_encoder
 from diffusers.schedulers import KarrasDiffusionSchedulers
@@ -38,7 +38,7 @@ from diffusers.utils import (
     unscale_lora_layers,
 )
 from diffusers.utils.torch_utils import randn_tensor
-from .pipeline_utils import DiffusionPipeline
+from ..pipeline_utils import DiffusionPipeline
 from diffusers.pipelines.stable_diffusion.pipeline_output import StableDiffusionPipelineOutput
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 
