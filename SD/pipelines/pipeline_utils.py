@@ -345,7 +345,7 @@ def get_class_obj_and_candidates(
 
         #RA
         if class_name == 'UNet2DConditionModel':
-            library_name = "Multi-LoRA-Composition.pipelines.sd1.5_0.26.3.unet_2d_condition"
+            library_name = "SD.models.unets.unet_2d_condition"
 
         library = importlib.import_module(library_name)
 
