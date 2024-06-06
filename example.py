@@ -1,7 +1,7 @@
 import torch
 import argparse
 # from diffusers import DiffusionPipeline, StableDiffusionPipeline, AutoencoderKL
-from SD.pipelines.stable_diffusion.pipeline import DiffusionPipeline
+from SD.pipelines.stable_diffusion.pipeline import StableDiffusionPipeline
 from diffusers import AutoencoderKL
 from diffusers import DPMSolverMultistepScheduler
 from callbacks import make_callback
@@ -20,7 +20,7 @@ def main(args):
     model_name = 'SG161222/Realistic_Vision_V5.1_noVAE'
 
     # set base model
-    pipeline = DiffusionPipeline.from_pretrained(
+    pipeline = StableDiffusionPipeline.from_pretrained(
         model_name,
         # custom_pipeline="./pipelines/sd1.5_0.26.3",
         use_safetensors=True

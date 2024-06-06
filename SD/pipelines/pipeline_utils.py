@@ -478,16 +478,25 @@ def load_sub_model(
 
     load_method = getattr(class_obj, load_method_name)
 
-    # add kwargs to loading method
-    diffusers_module = importlib.import_module(__name__.split(".")[0])
+    # # add kwargs to loading method
+    # diffusers_module = importlib.import_module(__name__.split(".")[0])
+    # loading_kwargs = {}
+    # if issubclass(class_obj, torch.nn.Module):
+    #     loading_kwargs["torch_dtype"] = torch_dtype
+    # if issubclass(class_obj, diffusers_module.OnnxRuntimeModel):
+    #     loading_kwargs["provider"] = provider
+    #     loading_kwargs["sess_options"] = sess_options
+    #RA TODO temporary fix for code above
+    from diffusers.pipelines.onnx_utils import OnnxRuntimeModel
+    from diffusers.models.modeling_utils import ModelMixin
     loading_kwargs = {}
     if issubclass(class_obj, torch.nn.Module):
         loading_kwargs["torch_dtype"] = torch_dtype
-    if issubclass(class_obj, diffusers_module.OnnxRuntimeModel):
+    if issubclass(class_obj, OnnxRuntimeModel):
         loading_kwargs["provider"] = provider
         loading_kwargs["sess_options"] = sess_options
 
-    is_diffusers_model = issubclass(class_obj, diffusers_module.ModelMixin)
+    is_diffusers_model = issubclass(class_obj, ModelMixin)
 
     if is_transformers_available():
         transformers_version = version.parse(version.parse(transformers.__version__).base_version)
@@ -542,9 +551,11 @@ def load_sub_model(
 
 
 def _fetch_class_library_tuple(module):
-    # import it here to avoid circular import
-    diffusers_module = importlib.import_module(__name__.split(".")[0])
-    pipelines = getattr(diffusers_module, "pipelines")
+    # # import it here to avoid circular import
+    # diffusers_module = importlib.import_module(__name__.split(".")[0])
+    # pipelines = getattr(diffusers_module, "pipelines")
+    #RA TODO same fix as before, review later
+    pipelines = importlib.import_module('diffusers.pipelines')
 
     # register the config from the original module, not the dynamo compiled one
     not_compiled_module = _unwrap_model(module)
