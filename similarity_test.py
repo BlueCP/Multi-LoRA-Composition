@@ -15,23 +15,6 @@ import numpy as np
 
 def main(args):
 
-    task_id = os.environ.get('SLURM_ARRAY_TASK_ID')
-    if task_id is not None:
-        task_id = int(task_id)
-        args.method = ('merge', 'switch', 'composite')[task_id % 3]
-        args.image_style = ('reality, anime')[(task_id // 3) % 2]
-        if args.image_style == 'reality':
-            args.denoise_steps = 100
-            args.cfg_scale = 7
-            args.height = 768
-            args.width = 1024
-        else:
-            args.denoise_steps = 200
-            args.cfg_scale = 10
-            args.height = 512
-            args.width = 512
-        args.compos_num = (2, 3, 4, 5)[task_id // 6]
-
     # set path based on the image style
     args.save_path = args.save_path + "_" + args.image_style
     args.lora_path = join(args.lora_path, args.image_style)
