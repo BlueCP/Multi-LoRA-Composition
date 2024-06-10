@@ -1053,6 +1053,8 @@ class StableDiffusionPipeline(
                             timestep_cond=timestep_cond,
                             cross_attention_kwargs=self.cross_attention_kwargs,
                             added_cond_kwargs=added_cond_kwargs,
+                            cache_layer_id=cache_layer_id,
+                            cache_block_id=cache_block_id,
                             return_dict=False,
                         )
                         noise_preds.append(noise_pred)
@@ -1069,6 +1071,8 @@ class StableDiffusionPipeline(
                         timestep_cond=timestep_cond,
                         cross_attention_kwargs=self.cross_attention_kwargs,
                         added_cond_kwargs=added_cond_kwargs,
+                        cache_layer_id=cache_layer_id,
+                        cache_block_id=cache_block_id,
                         return_dict=False,
                     )
                     cached_latents.append(cached_latent)

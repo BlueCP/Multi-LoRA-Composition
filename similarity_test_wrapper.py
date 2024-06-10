@@ -11,7 +11,7 @@ task_id = os.environ.get('SLURM_ARRAY_TASK_ID')
 if task_id is not None:
     task_id = int(task_id)
     args.method = ('merge', 'switch', 'composite')[task_id % 3]
-    args.image_style = ('reality, anime')[(task_id // 3) % 2]
+    args.image_style = ('reality', 'anime')[(task_id // 3) % 2]
     if args.image_style == 'reality':
         args.denoise_steps = 100
         args.cfg_scale = 7
