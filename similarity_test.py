@@ -15,6 +15,23 @@ import numpy as np
 
 def main(args):
 
+    task_id = os.environ.get('SLURM_ARRAY_TASK_ID')
+    if task_id is not None:
+        task_id = int(task_id)
+        args.method = ('merge', 'switch', 'composite')[task_id % 3]
+        args.image_style = ('reality, anime')[(task_id // 3) % 2]
+        if args.image_style == 'reality':
+            args.denoise_steps = 100
+            args.cfg_scale = 7
+            args.height = 768
+            args.width = 1024
+        else:
+            args.denoise_steps = 200
+            args.cfg_scale = 10
+            args.height = 512
+            args.width = 512
+        args.compos_num = (2, 3, 4, 5)[task_id // 6]
+
     # set path based on the image style
     args.save_path = args.save_path + "_" + args.image_style
     args.lora_path = join(args.lora_path, args.image_style)
@@ -34,14 +51,14 @@ def main(args):
         # custom_pipeline="./pipelines/sd1.5_0.26.3",
         # torch_dtype=torch.float16,
         use_safetensors=True
-    ).to("cuda")
+    ).to('cuda')
 
     # set vae
     if args.image_style == "reality":
         vae = AutoencoderKL.from_pretrained(
             "stabilityai/sd-vae-ft-mse",
             # torch_dtype=torch.float16
-        ).to("cuda")
+        ).to('cuda')
         pipeline.vae = vae
 
     # set scheduler
@@ -97,7 +114,9 @@ def main(args):
             generator=args.generator,
             cross_attention_kwargs={"scale": args.lora_scale},
             callback_on_step_end=switch_callback,
-            lora_composite=True if args.method == "composite" else False
+            lora_composite=True if args.method == "composite" else False,
+            cache_layer_id=args.cache_layer_id,
+            cache_block_id=args.cache_block_id
         )
 
         for i in range(args.denoise_steps - 1):
@@ -114,7 +133,7 @@ def main(args):
         timestep_similarity[i] = timestep_similarity[i].detach().cpu().numpy()
     
     results = np.array(timestep_similarity)
-    np.save(f'similarity/{args.compos_num}_{args.method}_{args.denoise_steps}_{args.image_style}.npy', results)
+    np.save(f'similarity/{args.method}_{args.image_style}_{args.compos_num}.npy', results)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -152,6 +171,10 @@ if __name__ == "__main__":
     parser.add_argument('--image_style', default='anime',
                         choices=['anime', 'reality'],
                         help='sytles of the generated images', type=str)
+
+    # DeepCache arguments
+    parser.add_argument('--cache_layer_id', default=0, type=int)
+    parser.add_argument('--cache_block_id', default=1, type=int)
 
     args = parser.parse_args()
     args.generator = torch.manual_seed(args.seed)

@@ -828,7 +828,9 @@ class StableDiffusionPipeline(
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
-        lora_composite: bool = False, 
+        lora_composite: bool = False,
+        cache_layer_id: Optional[int] = None,
+        cache_block_id: Optional[int] = None,
         **kwargs,
     ):
         r"""
@@ -1025,7 +1027,7 @@ class StableDiffusionPipeline(
             adapters = self.get_active_adapters()
 
         self._num_timesteps = len(timesteps)
-        high_level_latents = []
+        cached_latents = []
 
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
@@ -1044,7 +1046,7 @@ class StableDiffusionPipeline(
                     temp_latents = None
                     for adapter in adapters:
                         self.set_adapters(adapter)
-                        noise_pred, high_level_latent = self.unet(
+                        noise_pred, cached_latent = self.unet(
                             latent_model_input,
                             t,
                             encoder_hidden_states=prompt_embeds,
@@ -1055,12 +1057,12 @@ class StableDiffusionPipeline(
                         )
                         noise_preds.append(noise_pred)
                         if temp_latents is None:
-                            temp_latents = high_level_latent[None, ...]
+                            temp_latents = cached_latent[None, ...]
                         else:
-                            temp_latents = torch.cat((temp_latents, high_level_latent[None, ...]), dim=0)
-                    high_level_latents.append(torch.mean(temp_latents, dim=0))
+                            temp_latents = torch.cat((temp_latents, cached_latent[None, ...]), dim=0)
+                    cached_latents.append(torch.mean(temp_latents, dim=0))
                 else:
-                    noise_pred, high_level_latent = self.unet(
+                    noise_pred, cached_latent = self.unet(
                         latent_model_input,
                         t,
                         encoder_hidden_states=prompt_embeds,
@@ -1069,7 +1071,7 @@ class StableDiffusionPipeline(
                         added_cond_kwargs=added_cond_kwargs,
                         return_dict=False,
                     )
-                    high_level_latents.append(high_level_latent)
+                    cached_latents.append(cached_latent)
 
                 # perform guidance
                 if self.do_classifier_free_guidance:
@@ -1129,9 +1131,9 @@ class StableDiffusionPipeline(
         results = []
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        for i in range(len(high_level_latents) - 1):
-            latent1 = high_level_latents[i]
-            latent2 = high_level_latents[i + 1]
+        for i in range(len(cached_latents) - 1):
+            latent1 = cached_latents[i]
+            latent2 = cached_latents[i + 1]
 
             rmse = torch.sqrt(torch.mean((latent1 - latent2) ** 2, dim=(1, 2, 3)))
             both_latents = torch.cat((latent1, latent2), dim=1)

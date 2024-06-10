@@ -43,7 +43,7 @@ from diffusers.models.embeddings import (
     Timesteps,
 )
 from diffusers.models.modeling_utils import ModelMixin
-from diffusers.models.unets.unet_2d_blocks import (
+from .unet_2d_blocks import (
     UNetMidBlock2D,
     UNetMidBlock2DCrossAttn,
     UNetMidBlock2DSimpleCrossAttn,
@@ -854,6 +854,8 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
         down_intrablock_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         encoder_attention_mask: Optional[torch.Tensor] = None,
+        cache_layer_id: Optional[int] = None,
+        cache_block_id: Optional[int] = None,
         return_dict: bool = True,
     ) -> Union[UNet2DConditionOutput, Tuple]:
         r"""
@@ -1111,7 +1113,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin,
             is_adapter = True
 
         down_block_res_samples = (sample,)
-        high_level_latent = None
+        # high_level_latent = None
 
         for level, downsample_block in enumerate(self.down_blocks):
             if hasattr(downsample_block, "has_cross_attention") and downsample_block.has_cross_attention:
@@ -1136,8 +1138,8 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin,
 
             down_block_res_samples += res_samples
 
-            if level == 2:
-                high_level_latent = sample
+            # if level == 2:
+            #     high_level_latent = sample
 
         if is_controlnet:
             new_down_block_res_samples = ()
@@ -1176,6 +1178,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin,
             sample = sample + mid_block_additional_residual
 
         # 5. up
+        prv_f = None
         for i, upsample_block in enumerate(self.up_blocks):
             is_final_block = i == len(self.up_blocks) - 1
 
@@ -1188,7 +1191,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin,
                 upsample_size = down_block_res_samples[-1].shape[2:]
 
             if hasattr(upsample_block, "has_cross_attention") and upsample_block.has_cross_attention:
-                sample = upsample_block(
+                sample, input_states = upsample_block(
                     hidden_states=sample,
                     temb=emb,
                     res_hidden_states_tuple=res_samples,
@@ -1206,6 +1209,10 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin,
                     upsample_size=upsample_size,
                     scale=lora_scale,
                 )
+                input_states = None
+            
+            if cache_layer_id is not None and input_states is not None and i == len(self.up_blocks) - cache_layer_id - 1:
+                prv_f = input_states[-1 - cache_block_id]
 
         # 6. post-process
         if self.conv_norm_out:
@@ -1218,6 +1225,6 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin,
             unscale_lora_layers(self, lora_scale)
 
         if not return_dict:
-            return (sample, high_level_latent)
+            return (sample, prv_f)
 
         return UNet2DConditionOutput(sample=sample)
